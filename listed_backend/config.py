@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     debug: bool = False
     env: str = _env
     sentry_dsn: str = ""
+    database_url: str = ""
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
 
     model_config = {"env_file": str(_env_file), "env_file_encoding": "utf-8"}
 

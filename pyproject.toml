@@ -1,0 +1,18 @@
+[project]
+name = "listed-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]",
+    "pydantic-settings",
+    "supabase",
+    "supabase-auth",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "sentry-sdk",
+    "uvicorn[standard]",
+    "python-multipart",
+    "email-validator",
+]
