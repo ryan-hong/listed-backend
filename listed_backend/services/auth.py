@@ -1,7 +1,11 @@
+import uuid
+
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase_auth.errors import AuthApiError
 from supabase import AsyncClient
 
+from listed_backend.models.user import User
 from listed_backend.schemas.auth import AuthResponse, UserResponse
 
 
@@ -14,7 +18,7 @@ def _build_auth_response(session, user) -> AuthResponse:
     )
 
 
-async def sign_up(client: AsyncClient, email: str, password: str) -> AuthResponse:
+async def sign_up(client: AsyncClient, db: AsyncSession, email: str, password: str) -> AuthResponse:
     try:
         response = await client.auth.sign_up({"email": email, "password": password})
     except AuthApiError as e:
@@ -25,6 +29,9 @@ async def sign_up(client: AsyncClient, email: str, password: str) -> AuthRespons
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sign up succeeded but no session returned. Check your email for confirmation.",
         )
+
+    db.add(User(id=uuid.UUID(str(response.user.id)), email=response.user.email))
+    await db.commit()
 
     return _build_auth_response(response.session, response.user)
 

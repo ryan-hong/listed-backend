@@ -15,4 +15,5 @@ dependencies = [
     "uvicorn[standard]",
     "python-multipart",
     "email-validator",
+    "alembic>=1.18.4",
 ]
