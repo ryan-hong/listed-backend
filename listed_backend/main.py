@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from listed_backend.config import settings
 from listed_backend.database import close_db, init_db
@@ -23,6 +24,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8081"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router)
 
