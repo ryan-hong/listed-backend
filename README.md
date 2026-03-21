@@ -15,11 +15,12 @@ FastAPI backend for Listed. All auth flows through this service — the frontend
   ```bash
    make install
   ```
-2. Copy the env file and fill in your values:
+2. Create your local env file:
   ```bash
-   cp .env.development.example .env.development
+  cp .env.development .env.development.local
   ```
-  
+  Fill in your values in `.env.development.local`. This file is gitignored and overrides anything in `.env.development`.
+
   Required variables:
   ```
   DATABASE_URL=postgresql+asyncpg://...
