@@ -9,7 +9,9 @@ ENV_FILE_MAP = {
 }
 
 _env = os.getenv("ENV", "dev")
-_env_file = Path(__file__).resolve().parent.parent / ENV_FILE_MAP.get(_env, ".env.development")
+_base_dir = Path(__file__).resolve().parent.parent
+_env_file = _base_dir / ENV_FILE_MAP.get(_env, ".env.development")
+_env_local_file = _base_dir / f"{ENV_FILE_MAP.get(_env, '.env.development')}.local"
 
 
 class Settings(BaseSettings):
@@ -21,7 +23,10 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
 
-    model_config = {"env_file": str(_env_file), "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": (str(_env_file), str(_env_local_file)),
+        "env_file_encoding": "utf-8",
+    }
 
 
 settings = Settings()

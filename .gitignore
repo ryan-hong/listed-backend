@@ -9,7 +9,7 @@ ENV/
 
 .env
 .env.production
-.env.development
+*.local
 
 *.egg-info/
 dist/
