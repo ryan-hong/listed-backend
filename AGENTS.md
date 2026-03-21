@@ -1,1 +1,0 @@
-Never look at my .env.development for secrets

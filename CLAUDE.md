@@ -1,1 +1,2 @@
-Refer to @AGENTS.md
+- Never look at my .env.development for secrets
+- Always make sure we are in virtual environment - there is a bash shortcut `alfs` to activate the virtual environment
