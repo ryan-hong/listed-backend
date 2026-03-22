@@ -10,7 +10,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=SignUpResponse, status_code=201)
 async def signup(body: SignUpRequest, client=Depends(get_supabase)):
-    return await auth_service.sign_up(client, body.email, body.password)
+    return await auth_service.sign_up(
+        client, body.email, body.password, body.first_name, body.last_name,
+    )
 
 
 @router.post("/login", response_model=AuthResponse)

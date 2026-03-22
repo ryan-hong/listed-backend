@@ -1,2 +1,3 @@
 - Never look at my .env.development for secrets
 - Always make sure we are in virtual environment - there is a bash shortcut `alfs` to activate the virtual environment
+- Always use Alembic for database migrations on public tables — never run DDL directly in the Supabase SQL editor

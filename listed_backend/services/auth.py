@@ -14,9 +14,25 @@ def _build_auth_response(session, user) -> AuthResponse:
     )
 
 
-async def sign_up(client: AsyncClient, email: str, password: str) -> SignUpResponse:
+async def sign_up(
+    client: AsyncClient,
+    email: str,
+    password: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
+) -> SignUpResponse:
+    data: dict[str, str] = {}
+    if first_name:
+        data["first_name"] = first_name
+    if last_name:
+        data["last_name"] = last_name
+
     try:
-        response = await client.auth.sign_up({"email": email, "password": password})
+        response = await client.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {"data": data},
+        })
     except AuthApiError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
