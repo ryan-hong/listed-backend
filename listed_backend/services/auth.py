@@ -1,12 +1,8 @@
-import uuid
-
 from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from supabase_auth.errors import AuthApiError
 from supabase import AsyncClient
 
-from listed_backend.models.user import User
-from listed_backend.schemas.auth import AuthResponse, UserResponse
+from listed_backend.schemas.auth import AuthResponse, ConfirmStatusResponse, SignUpResponse, UserResponse
 
 
 def _build_auth_response(session, user) -> AuthResponse:
@@ -18,22 +14,38 @@ def _build_auth_response(session, user) -> AuthResponse:
     )
 
 
-async def sign_up(client: AsyncClient, db: AsyncSession, email: str, password: str) -> AuthResponse:
+async def sign_up(client: AsyncClient, email: str, password: str) -> SignUpResponse:
     try:
         response = await client.auth.sign_up({"email": email, "password": password})
     except AuthApiError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    if response.session is None or response.user is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sign up succeeded but no session returned. Check your email for confirmation.",
-        )
+    is_duplicate = (
+        response.user is not None
+        and not response.user.identities
+    )
+    if is_duplicate:
+        try:
+            await client.auth.reset_password_for_email(email)
+        except AuthApiError:
+            pass
+        return SignUpResponse(message="Check your email to confirm your account.")
 
-    db.add(User(id=uuid.UUID(str(response.user.id)), email=response.user.email))
-    await db.commit()
+    check_id = str(response.user.id) if response.user else None
+    return SignUpResponse(
+        message="Check your email to confirm your account.",
+        check_id=check_id,
+    )
 
-    return _build_auth_response(response.session, response.user)
+
+async def check_email_confirmed(client: AsyncClient, user_id: str) -> ConfirmStatusResponse:
+    try:
+        response = await client.auth.admin.get_user_by_id(user_id)
+    except AuthApiError:
+        return ConfirmStatusResponse(confirmed=False)
+
+    confirmed = response.user.email_confirmed_at is not None
+    return ConfirmStatusResponse(confirmed=confirmed)
 
 
 async def login(client: AsyncClient, email: str, password: str) -> AuthResponse:

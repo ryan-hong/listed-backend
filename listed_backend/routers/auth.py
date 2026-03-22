@@ -1,18 +1,16 @@
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from listed_backend.database import get_db
 from listed_backend.dependencies.auth import get_current_user
-from listed_backend.schemas.auth import AuthResponse, LoginRequest, RefreshRequest, SignUpRequest, UserResponse
+from listed_backend.schemas.auth import AuthResponse, ConfirmStatusResponse, LoginRequest, RefreshRequest, SignUpRequest, SignUpResponse, UserResponse
 from listed_backend.services import auth as auth_service
 from listed_backend.supabase_client import get_supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/signup", response_model=AuthResponse, status_code=201)
-async def signup(body: SignUpRequest, client=Depends(get_supabase), db: AsyncSession = Depends(get_db)):
-    return await auth_service.sign_up(client, db, body.email, body.password)
+@router.post("/signup", response_model=SignUpResponse, status_code=201)
+async def signup(body: SignUpRequest, client=Depends(get_supabase)):
+    return await auth_service.sign_up(client, body.email, body.password)
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -32,6 +30,11 @@ async def logout(
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(body: RefreshRequest, client=Depends(get_supabase)):
     return await auth_service.refresh(client, body.refresh_token)
+
+
+@router.get("/confirm-status/{user_id}", response_model=ConfirmStatusResponse)
+async def confirm_status(user_id: str, client=Depends(get_supabase)):
+    return await auth_service.check_email_confirmed(client, user_id)
 
 
 @router.get("/me", response_model=UserResponse)

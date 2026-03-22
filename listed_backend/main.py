@@ -17,8 +17,8 @@ if settings.sentry_dsn:
 async def lifespan(app: FastAPI):
     if settings.database_url:
         init_db(settings.database_url)
-    if settings.supabase_url and settings.supabase_anon_key:
-        await init_supabase(settings.supabase_url, settings.supabase_anon_key)
+    if settings.supabase_url and settings.supabase_service_role_key:
+        await init_supabase(settings.supabase_url, settings.supabase_service_role_key)
     yield
     await close_db()
 
