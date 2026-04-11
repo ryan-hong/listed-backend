@@ -7,6 +7,8 @@ from alembic import context
 from listed_backend.config import settings
 from listed_backend.database import Base
 import listed_backend.models.user  # noqa: F401 — ensure model is registered
+import listed_backend.models.list  # noqa: F401
+import listed_backend.models.list_entry  # noqa: F401
 
 config = context.config
 
