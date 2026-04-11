@@ -11,7 +11,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/signup", response_model=SignUpResponse, status_code=201)
 async def signup(body: SignUpRequest, client=Depends(get_supabase)):
     return await auth_service.sign_up(
-        client, body.email, body.password, body.first_name, body.last_name,
+        client, body.email, body.password, body.full_name,
     )
 
 
@@ -41,4 +41,8 @@ async def confirm_status(user_id: str, client=Depends(get_supabase)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(user=Depends(get_current_user)):
-    return UserResponse(id=str(user.id), email=user.email)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+    )

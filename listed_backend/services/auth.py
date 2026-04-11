@@ -14,16 +14,28 @@ def _build_auth_response(session, user) -> AuthResponse:
     )
 
 
+def _split_full_name(full_name: str) -> tuple[str, str | None]:
+    """Split full name into (first_name, last_name).
+
+    First word becomes first_name, everything after becomes last_name.
+    """
+    parts = full_name.strip().split(maxsplit=1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else None
+    return first_name, last_name
+
+
 async def sign_up(
     client: AsyncClient,
     email: str,
     password: str,
-    first_name: str | None = None,
-    last_name: str | None = None,
+    full_name: str,
 ) -> SignUpResponse:
-    data: dict[str, str] = {}
-    if first_name:
-        data["first_name"] = first_name
+    first_name, last_name = _split_full_name(full_name)
+    data: dict[str, str] = {
+        "first_name": first_name,
+        "display_name": first_name,
+    }
     if last_name:
         data["last_name"] = last_name
 
