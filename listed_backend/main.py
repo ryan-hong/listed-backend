@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from listed_backend.config import settings
 from listed_backend.database import close_db, init_db
-from listed_backend.routers import auth
+from listed_backend.routers import auth, lists
 from listed_backend.supabase_client import init_supabase
 
 if settings.sentry_dsn:
@@ -34,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(lists.router)
 
 
 @app.get("/")
