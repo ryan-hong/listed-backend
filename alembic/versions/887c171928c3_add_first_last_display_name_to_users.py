@@ -1,4 +1,4 @@
-"""add_first_last_display_name_to_users
+"""add first, last, display name to users table
 
 Revision ID: 887c171928c3
 Revises: e418ebcb9ae5
