@@ -57,9 +57,9 @@ class ListEntry(Base):
     is_favourited: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
-    # Denormalized count of entry_visits rows. Maintained by app code on
-    # visit insert/delete so list views can render without a join+aggregate.
-    visit_count: Mapped[int] = mapped_column(
+    # Denormalized count of entry_logs rows. Maintained by app code on
+    # log insert/delete so list views can render without a join+aggregate.
+    log_count: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")
     )
     # Optional dedup key (e.g. ("google_places", "ChIJ...") or ("tmdb", "603")).
@@ -82,14 +82,14 @@ class ListEntry(Base):
         nullable=False,
     )
 
-    visits: Mapped[list["EntryVisit"]] = relationship(
+    logs: Mapped[list["EntryLog"]] = relationship(
         cascade="all, delete-orphan",
-        order_by="EntryVisit.visited_at.desc().nullslast(), EntryVisit.created_at.desc()",
+        order_by="EntryLog.occurred_at.desc().nullslast(), EntryLog.created_at.desc()",
     )
 
 
-class EntryVisit(Base):
-    __tablename__ = "entry_visits"
+class EntryLog(Base):
+    __tablename__ = "entry_logs"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     entry_id: Mapped[int] = mapped_column(
@@ -100,7 +100,7 @@ class EntryVisit(Base):
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
-    visited_at: Mapped[datetime | None] = mapped_column(
+    occurred_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -125,9 +125,9 @@ class EntryMedia(Base):
     __tablename__ = "entry_media"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    visit_id: Mapped[int] = mapped_column(
+    log_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("entry_visits.id", ondelete="CASCADE"),
+        ForeignKey("entry_logs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
