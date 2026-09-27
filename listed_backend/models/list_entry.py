@@ -20,10 +20,16 @@ from listed_backend.database import Base
 
 
 class EntryType(str, enum.Enum):
-    restaurant = "restaurant"
-    movie = "movie"
-    travel = "travel"
-    custom = "custom"
+    RESTAURANT = "RESTAURANT"
+    MOVIE = "MOVIE"
+    PLACE = "PLACE"
+    MEAL = "MEAL"
+    BOOK = "BOOK"
+    TV_SHOW = "TV_SHOW"
+    VIDEO_GAME = "VIDEO_GAME"
+    PODCAST = "PODCAST"
+    EVENT = "EVENT"
+    CUSTOM = "CUSTOM"
 
 
 class ListEntry(Base):
