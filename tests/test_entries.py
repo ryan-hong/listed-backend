@@ -110,7 +110,7 @@ class EntryEndpointTests(unittest.TestCase):
         body = {"entry_type": "MOVIE", "title": "Film", "log": {"rating": 8.9}, **fields}
         return self.client.post("/lists/1/entries", json=body)
 
-    def test_get_entries_orders_and_scopes_full_responses(self):
+    def test_get_entries_orders_and_scopes_summaries_without_loading_logs(self):
         first = self.create(title="First", position=10).json()
         second = self.create(title="Second", position=-1).json()
         third = self.create(title="Third", position=10).json()
@@ -125,13 +125,29 @@ class EntryEndpointTests(unittest.TestCase):
                 media_type="image",
             ))
             session.commit()
-        response = self.client.get("/lists/1/entries")
+        statements = []
+
+        def capture_statement(connection, cursor, statement, parameters, context, executemany):
+            statements.append(statement.lower())
+
+        event.listen(self.engine, "before_cursor_execute", capture_statement)
+        try:
+            response = self.client.get("/lists/1/entries")
+        finally:
+            event.remove(self.engine, "before_cursor_execute", capture_statement)
         self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(any("entry_logs" in statement or "entry_media" in statement for statement in statements))
         entries = response.json()
         self.assertEqual([entry["id"] for entry in entries], [second["id"], first["id"], third["id"]])
-        self.assertEqual(entries[1]["logs"][0]["media"][0]["url"], "https://example.com/photo.jpg")
         for entry in entries:
-            self.assertEqual(entry, self.client.get(f"/lists/1/entries/{entry['id']}").json())
+            self.assertNotIn("logs", entry)
+            self.assertNotIn("media", entry)
+            self.assertEqual(entry["log_count"], 1)
+            detail = self.client.get(f"/lists/1/entries/{entry['id']}").json()
+            logs = detail.pop("logs")
+            self.assertEqual(entry, detail)
+            if entry["id"] == first["id"]:
+                self.assertEqual(logs[0]["media"][0]["url"], "https://example.com/photo.jpg")
 
     def test_get_entries_empty_list_and_ownership(self):
         response = self.client.get("/lists/1/entries")
@@ -363,6 +379,7 @@ class EntryEndpointTests(unittest.TestCase):
             stored.meta = None
             session.commit()
         self.assertEqual(self.client.get(f"/lists/1/entries/{entry['id']}").json()["meta"], {})
+        self.assertEqual(self.client.get("/lists/1/entries").json()[0]["meta"], {})
 
 
 class ConstraintErrorTests(unittest.IsolatedAsyncioTestCase):

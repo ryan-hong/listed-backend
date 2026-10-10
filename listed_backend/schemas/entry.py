@@ -138,7 +138,7 @@ class EntryLogResponse(BaseModel):
     media: list[EntryMediaResponse]
 
 
-class EntryResponse(BaseModel):
+class EntrySummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -153,9 +153,12 @@ class EntryResponse(BaseModel):
     meta: dict
     created_at: datetime
     updated_at: datetime
-    logs: list[EntryLogResponse]
 
     @field_validator("meta", mode="before")
     @classmethod
     def metadata_object(cls, value):
         return {} if value is None else value
+
+
+class EntryResponse(EntrySummaryResponse):
+    logs: list[EntryLogResponse]

@@ -10,6 +10,7 @@ from listed_backend.schemas.entry import (
     EntryLogUpdate,
     EntryCreate,
     EntryResponse,
+    EntrySummaryResponse,
     EntryUpdate,
 )
 from listed_backend.services import entries as entries_service
@@ -17,7 +18,7 @@ from listed_backend.services import entries as entries_service
 router = APIRouter(prefix="/lists/{list_id}/entries", tags=["entries"])
 
 
-@router.get("", response_model=list[EntryResponse])
+@router.get("", response_model=list[EntrySummaryResponse])
 async def get_entries(
     list_id: int,
     user: User = Depends(get_current_user),

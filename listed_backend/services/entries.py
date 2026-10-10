@@ -24,7 +24,6 @@ async def get_all_entries(db: AsyncSession, user: User, list_id: int) -> list[En
     result = await db.execute(
         select(Entry)
         .where(Entry.list_id == list_id)
-        .options(selectinload(Entry.logs).selectinload(EntryLog.media))
         .order_by(Entry.position.asc(), Entry.id.asc())
     )
     return list(result.scalars().all())
