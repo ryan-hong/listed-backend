@@ -78,7 +78,7 @@ class EntryLogUpdate(EntryLogFields):
 class EntryCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    entry_type: EntryType
+    entry_type: EntryType = EntryType.CUSTOM
     title: trimmed_text(500)
     position: Position | None = None
     is_favourited: StrictBool = False
