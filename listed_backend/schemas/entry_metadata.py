@@ -22,7 +22,7 @@ from pydantic import (
     model_validator,
 )
 
-from listed_backend.models.list_entry import EntryType
+from listed_backend.models.entry import EntryType
 from listed_backend.schemas.validation import raise_field_error
 
 

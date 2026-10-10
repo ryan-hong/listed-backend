@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
 )
 
-from listed_backend.models.list_entry import EntryType
+from listed_backend.models.entry import EntryType
 from listed_backend.schemas.entry_metadata import trimmed_text, validate_metadata
 from listed_backend.schemas.validation import raise_field_error
 
@@ -30,9 +30,9 @@ def normalized_metadata(entry_type: EntryType, meta: dict | None) -> dict:
         errors = exc.errors(include_url=False)
         for error in errors:
             error["loc"] = ("meta", *error["loc"])
-        raise ValidationError.from_exception_data("ListEntry", errors) from None
+        raise ValidationError.from_exception_data("Entry", errors) from None
     except ValueError as exc:
-        raise_field_error("ListEntry", ("meta",), str(exc), meta)
+        raise_field_error("Entry", ("meta",), str(exc), meta)
 
 
 class EntryLogFields(BaseModel):
@@ -75,7 +75,7 @@ class EntryLogUpdate(EntryLogFields):
         return self
 
 
-class ListEntryCreate(BaseModel):
+class EntryCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     entry_type: EntryType
@@ -93,7 +93,7 @@ class ListEntryCreate(BaseModel):
         return self
 
 
-class ListEntryUpdate(BaseModel):
+class EntryUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     entry_type: EntryType | None = None
@@ -110,7 +110,7 @@ class ListEntryUpdate(BaseModel):
             raise ValueError("at least one field must be provided")
         for field in ("entry_type", "title", "position", "is_favourited"):
             if field in self.model_fields_set and getattr(self, field) is None:
-                raise_field_error("ListEntry", (field,), "must not be null")
+                raise_field_error("Entry", (field,), "must not be null")
         return self
 
 
@@ -138,7 +138,7 @@ class EntryLogResponse(BaseModel):
     media: list[EntryMediaResponse]
 
 
-class ListEntryResponse(BaseModel):
+class EntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

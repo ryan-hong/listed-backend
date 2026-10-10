@@ -4,30 +4,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from listed_backend.database import get_db
 from listed_backend.dependencies.auth import get_current_user
 from listed_backend.models.user import User
-from listed_backend.schemas.list_entry import (
+from listed_backend.schemas.entry import (
     EntryLogCreate,
     EntryLogResponse,
     EntryLogUpdate,
-    ListEntryCreate,
-    ListEntryResponse,
-    ListEntryUpdate,
+    EntryCreate,
+    EntryResponse,
+    EntryUpdate,
 )
-from listed_backend.services import list_entries as entries_service
+from listed_backend.services import entries as entries_service
 
 router = APIRouter(prefix="/lists/{list_id}/entries", tags=["entries"])
 
 
-@router.post("", response_model=ListEntryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=EntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_entry(
     list_id: int,
-    body: ListEntryCreate,
+    body: EntryCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await entries_service.create(db, user, list_id, body)
 
 
-@router.get("/{entry_id}", response_model=ListEntryResponse)
+@router.get("/{entry_id}", response_model=EntryResponse)
 async def get_entry(
     list_id: int,
     entry_id: int,
@@ -37,11 +37,11 @@ async def get_entry(
     return await entries_service.get_owned(db, user, list_id, entry_id)
 
 
-@router.patch("/{entry_id}", response_model=ListEntryResponse)
+@router.patch("/{entry_id}", response_model=EntryResponse)
 async def update_entry(
     list_id: int,
     entry_id: int,
-    body: ListEntryUpdate,
+    body: EntryUpdate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

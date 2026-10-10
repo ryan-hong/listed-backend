@@ -32,12 +32,12 @@ class EntryType(str, enum.Enum):
     CUSTOM = "CUSTOM"
 
 
-class ListEntry(Base):
-    __tablename__ = "list_entries"
+class Entry(Base):
+    __tablename__ = "entries"
     __table_args__ = (
-        Index("ix_list_entries_list_id_position", "list_id", "position"),
+        Index("ix_entries_list_id_position", "list_id", "position"),
         Index(
-            "ux_list_entries_list_external",
+            "ux_entries_list_external",
             "list_id",
             "external_source",
             "external_id",
@@ -100,7 +100,7 @@ class EntryLog(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     entry_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("list_entries.id", ondelete="CASCADE"),
+        ForeignKey("entries.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

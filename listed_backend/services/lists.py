@@ -3,15 +3,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from listed_backend.models.list import List
-from listed_backend.models.list_entry import ListEntry
+from listed_backend.models.entry import Entry
 from listed_backend.models.user import User
-from listed_backend.schemas.list import ListCreate, ListUpdate
+from listed_backend.schemas.list import Create, Update
 
 
 async def list_for_user(db: AsyncSession, user: User) -> list[tuple[List, int]]:
     stmt = (
-        select(List, func.count(ListEntry.id))
-        .outerjoin(ListEntry, ListEntry.list_id == List.id)
+        select(List, func.count(Entry.id))
+        .outerjoin(Entry, Entry.list_id == List.id)
         .where(List.user_id == user.id)
         .group_by(List.id)
         .order_by(List.sort_order.asc(), List.id.asc())
@@ -34,12 +34,12 @@ async def get_owned(db: AsyncSession, user: User, list_id: int) -> List:
 
 async def entry_count_for(db: AsyncSession, list_id: int) -> int:
     result = await db.execute(
-        select(func.count(ListEntry.id)).where(ListEntry.list_id == list_id)
+        select(func.count(Entry.id)).where(Entry.list_id == list_id)
     )
     return result.scalar_one()
 
 
-async def create(db: AsyncSession, user: User, payload: ListCreate) -> List:
+async def create(db: AsyncSession, user: User, payload: Create) -> List:
     if payload.sort_order is None:
         max_result = await db.execute(
             select(func.coalesce(func.max(List.sort_order), -1)).where(
@@ -64,7 +64,7 @@ async def create(db: AsyncSession, user: User, payload: ListCreate) -> List:
     return list_obj
 
 
-async def update(db: AsyncSession, list_obj: List, payload: ListUpdate) -> List:
+async def update(db: AsyncSession, list_obj: List, payload: Update) -> List:
     fields = payload.model_dump(exclude_unset=True)
     for field, value in fields.items():
         setattr(list_obj, field, value)

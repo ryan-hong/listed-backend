@@ -25,13 +25,13 @@ from sqlalchemy.schema import DefaultClause
 from listed_backend.database import Base, get_db
 from listed_backend.dependencies.auth import get_current_user
 from listed_backend.models.list import List
-from listed_backend.models.list_entry import EntryLog, EntryMedia, ListEntry
+from listed_backend.models.entry import EntryLog, EntryMedia, Entry
 from listed_backend.models.user import User
-from listed_backend.routers.list_entries import router
-from listed_backend.schemas.list_entry import ListEntryUpdate
+from listed_backend.routers.entries import router
+from listed_backend.schemas.entry import EntryUpdate
 from listed_backend.schemas.validation import json_safe_validation_handler
-from listed_backend.services.list_entries import get_owned
-from listed_backend.services.list_entries import _commit, update
+from listed_backend.services.entries import get_owned
+from listed_backend.services.entries import _commit, update
 
 
 @compiles(BigInteger, "sqlite")
@@ -81,7 +81,7 @@ class EntryEndpointTests(unittest.TestCase):
         metadata = MetaData()
         for table in Base.metadata.sorted_tables:
             table.to_metadata(metadata)
-        metadata.tables["list_entries"].c.meta.server_default = DefaultClause(text("'{}'"))
+        metadata.tables["entries"].c.meta.server_default = DefaultClause(text("'{}'"))
         metadata.create_all(self.engine)
         self.user_id = uuid.uuid4()
         self.other_id = uuid.uuid4()
@@ -191,10 +191,10 @@ class EntryEndpointTests(unittest.TestCase):
         self.assertEqual(self.client.post(path + "/logs", json={}).status_code, 422)
         self.assertEqual(self.client.get(path).json()["log_count"], before["log_count"])
         with Session(self.engine) as session:
-            before_count = len(session.scalars(select(ListEntry)).all())
+            before_count = len(session.scalars(select(Entry)).all())
         self.assertEqual(self.create(meta={"rating": 5}).status_code, 422)
         with Session(self.engine) as session:
-            self.assertEqual(len(session.scalars(select(ListEntry)).all()), before_count)
+            self.assertEqual(len(session.scalars(select(Entry)).all()), before_count)
 
     def test_update_log_preserves_omitted_fields_and_count(self):
         entry = self.create(log={"note": "First watch", "rating": 8.9, "occurred_at": "2026-09-30T18:00:00Z"}).json()
@@ -267,12 +267,12 @@ class EntryEndpointTests(unittest.TestCase):
                     self.assertEqual(stale.entry_type, "MOVIE")
                     await update(
                         second_db, user, 1, entry["id"],
-                        ListEntryUpdate(entry_type="BOOK", meta={"authors": ["Author"]}),
+                        EntryUpdate(entry_type="BOOK", meta={"authors": ["Author"]}),
                     )
                     with self.assertRaises(RequestValidationError):
                         await update(
                             first_db, user, 1, entry["id"],
-                            ListEntryUpdate(meta={"directors": ["Director"]}),
+                            EntryUpdate(meta={"directors": ["Director"]}),
                         )
 
         asyncio.run(interleave_updates())
@@ -323,7 +323,7 @@ class EntryEndpointTests(unittest.TestCase):
     def test_null_stored_metadata_returns_object(self):
         entry = self.create().json()
         with Session(self.engine) as session:
-            stored = session.get(ListEntry, entry["id"])
+            stored = session.get(Entry, entry["id"])
             stored.meta = None
             session.commit()
         self.assertEqual(self.client.get(f"/lists/1/entries/{entry['id']}").json()["meta"], {})
@@ -332,13 +332,13 @@ class EntryEndpointTests(unittest.TestCase):
 class ConstraintErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_duplicate_during_explicit_update_returns_409(self):
         original = Exception("duplicate")
-        original.constraint_name = "ux_list_entries_list_external"
+        original.constraint_name = "ux_entries_list_external"
         db = AsyncMock()
-        entry = ListEntry(id=1, entry_type="MOVIE", title="Film", meta={})
+        entry = Entry(id=1, entry_type="MOVIE", title="Film", meta={})
         result = Mock()
         result.scalar_one_or_none.return_value = entry
         db.execute.side_effect = [result, IntegrityError("update", {}, original)]
-        payload = ListEntryUpdate(external_source="tmdb", external_id="603")
+        payload = EntryUpdate(external_source="tmdb", external_id="603")
         with self.assertRaises(HTTPException) as raised:
             await update(db, User(id=uuid.uuid4()), 1, entry.id, payload)
         self.assertEqual(raised.exception.status_code, 409)
@@ -347,7 +347,7 @@ class ConstraintErrorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_named_duplicate_returns_409_and_rolls_back(self):
         original = Exception("duplicate")
-        original.constraint_name = "ux_list_entries_list_external"
+        original.constraint_name = "ux_entries_list_external"
         db = AsyncMock()
         db.commit.side_effect = IntegrityError("insert", {}, original)
         with self.assertRaises(HTTPException) as raised:

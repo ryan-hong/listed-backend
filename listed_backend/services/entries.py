@@ -6,13 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from listed_backend.models.list import List
-from listed_backend.models.list_entry import EntryLog, ListEntry
+from listed_backend.models.entry import EntryLog, Entry
 from listed_backend.models.user import User
-from listed_backend.schemas.list_entry import (
+from listed_backend.schemas.entry import (
     EntryLogCreate,
     EntryLogUpdate,
-    ListEntryCreate,
-    ListEntryUpdate,
+    EntryCreate,
+    EntryUpdate,
     normalized_metadata,
 )
 from listed_backend.schemas.validation import as_request_validation_error, raise_field_error
@@ -23,16 +23,16 @@ async def get_owned(
     user: User,
     list_id: int,
     entry_id: int,
-) -> ListEntry:
+) -> Entry:
     result = await db.execute(
-        select(ListEntry)
-        .join(List, List.id == ListEntry.list_id)
+        select(Entry)
+        .join(List, List.id == Entry.list_id)
         .where(
-            ListEntry.id == entry_id,
-            ListEntry.list_id == list_id,
+            Entry.id == entry_id,
+            Entry.list_id == list_id,
             List.user_id == user.id,
         )
-        .options(selectinload(ListEntry.logs).selectinload(EntryLog.media))
+        .options(selectinload(Entry.logs).selectinload(EntryLog.media))
         .execution_options(populate_existing=True)
     )
     entry = result.scalar_one_or_none()
@@ -47,7 +47,7 @@ def _raise_integrity_error(exc: IntegrityError):
         name = getattr(error, "constraint_name", None)
         if name is None:
             name = getattr(getattr(error, "diag", None), "constraint_name", None)
-        if name == "ux_list_entries_list_external":
+        if name == "ux_entries_list_external":
             raise HTTPException(
                 status_code=409,
                 detail="This item already exists in the list. Add a log to the existing entry instead.",
@@ -68,8 +68,8 @@ async def create(
     db: AsyncSession,
     user: User,
     list_id: int,
-    payload: ListEntryCreate,
-) -> ListEntry:
+    payload: EntryCreate,
+) -> Entry:
     # Serialize appends within a list, and verify ownership before inserting.
     result = await db.execute(
         select(List)
@@ -81,8 +81,8 @@ async def create(
     position = payload.position
     if position is None:
         result = await db.execute(
-            select(func.coalesce(func.max(ListEntry.position), -1))
-            .where(ListEntry.list_id == list_id)
+            select(func.coalesce(func.max(Entry.position), -1))
+            .where(Entry.list_id == list_id)
         )
         position = result.scalar_one() + 1
         if position > 2_147_483_647:
@@ -90,7 +90,7 @@ async def create(
     # The nested log becomes a related row; position was calculated above.
     fields = payload.model_dump(exclude={"log", "position"})
     fields["entry_type"] = payload.entry_type.value
-    entry = ListEntry(
+    entry = Entry(
         **fields,
         list_id=list_id,
         position=position,
@@ -107,18 +107,18 @@ async def update(
     user: User,
     list_id: int,
     entry_id: int,
-    payload: ListEntryUpdate,
-) -> ListEntry:
+    payload: EntryUpdate,
+) -> Entry:
     result = await db.execute(
-        select(ListEntry)
-        .join(List, List.id == ListEntry.list_id)
+        select(Entry)
+        .join(List, List.id == Entry.list_id)
         .where(
-            ListEntry.id == entry_id,
-            ListEntry.list_id == list_id,
+            Entry.id == entry_id,
+            Entry.list_id == list_id,
             List.user_id == user.id,
         )
         # Read the current type and metadata under a lock before validating edits.
-        .with_for_update(of=ListEntry)
+        .with_for_update(of=Entry)
         .execution_options(populate_existing=True)
     )
     entry = result.scalar_one_or_none()
@@ -129,7 +129,7 @@ async def update(
     try:
         if entry_type != entry.entry_type and "meta" not in fields:
             raise_field_error(
-                "ListEntry", ("meta",), "meta must be provided when changing entry_type"
+                "Entry", ("meta",), "meta must be provided when changing entry_type"
             )
         # Validate the effective type and metadata before changing any fields.
         meta = normalized_metadata(entry_type, fields.get("meta", entry.meta))
@@ -141,7 +141,7 @@ async def update(
         fields["entry_type"] = payload.entry_type.value
     try:
         await db.execute(
-            sql_update(ListEntry).where(ListEntry.id == entry.id).values(**fields)
+            sql_update(Entry).where(Entry.id == entry.id).values(**fields)
         )
     except IntegrityError as exc:
         await db.rollback()
@@ -150,23 +150,23 @@ async def update(
     return entry
 
 
-async def delete(db: AsyncSession, entry: ListEntry) -> None:
+async def delete(db: AsyncSession, entry: Entry) -> None:
     await db.delete(entry)
     await db.commit()
 
 
 async def add_log(
     db: AsyncSession,
-    entry: ListEntry,
+    entry: Entry,
     payload: EntryLogCreate,
 ) -> EntryLog:
     log = EntryLog(entry_id=entry.id, **payload.model_dump(), media=[])
     db.add(log)
     # Increment in SQL so concurrent log requests cannot lose increments.
     await db.execute(
-        sql_update(ListEntry)
-        .where(ListEntry.id == entry.id)
-        .values(log_count=ListEntry.log_count + 1)
+        sql_update(Entry)
+        .where(Entry.id == entry.id)
+        .values(log_count=Entry.log_count + 1)
     )
     await _commit(db)
     # Refresh generated columns without expiring media and triggering async lazy IO.
@@ -184,11 +184,11 @@ async def update_log(
 ) -> EntryLog:
     result = await db.execute(
         select(EntryLog)
-        .join(ListEntry, ListEntry.id == EntryLog.entry_id)
-        .join(List, List.id == ListEntry.list_id)
+        .join(Entry, Entry.id == EntryLog.entry_id)
+        .join(List, List.id == Entry.list_id)
         .where(
             EntryLog.id == log_id,
-            ListEntry.id == entry_id,
+            Entry.id == entry_id,
             List.id == list_id,
             List.user_id == user.id,
         )

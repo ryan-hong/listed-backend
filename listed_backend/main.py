@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from listed_backend.config import settings
 from listed_backend.database import close_db, init_db
-from listed_backend.routers import auth, list_entries, lists
+from listed_backend.routers import auth, entries, lists
 from listed_backend.schemas.validation import json_safe_validation_handler
 from listed_backend.supabase_client import init_supabase
 
@@ -38,7 +38,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(lists.router)
-app.include_router(list_entries.router)
+app.include_router(entries.router)
 
 
 @app.get("/")

@@ -5,14 +5,14 @@ from listed_backend.database import get_db
 from listed_backend.dependencies.auth import get_current_user
 from listed_backend.models.list import List
 from listed_backend.models.user import User
-from listed_backend.schemas.list import ListCreate, ListResponse, ListUpdate
+from listed_backend.schemas.list import Create, Response, Update
 from listed_backend.services import lists as lists_service
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
 
-def _to_response(list_obj: List, entry_count: int) -> ListResponse:
-    return ListResponse(
+def _to_response(list_obj: List, entry_count: int) -> Response:
+    return Response(
         id=list_obj.id,
         user_id=str(list_obj.user_id),
         name=list_obj.name,
@@ -26,7 +26,7 @@ def _to_response(list_obj: List, entry_count: int) -> ListResponse:
     )
 
 
-@router.get("", response_model=list[ListResponse])
+@router.get("", response_model=list[Response])
 async def get_lists(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -35,7 +35,7 @@ async def get_lists(
     return [_to_response(list_obj, count) for list_obj, count in rows]
 
 
-@router.get("/{list_id}", response_model=ListResponse)
+@router.get("/{list_id}", response_model=Response)
 async def get_list(
     list_id: int,
     user: User = Depends(get_current_user),
@@ -46,9 +46,9 @@ async def get_list(
     return _to_response(list_obj, count)
 
 
-@router.post("", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Response, status_code=status.HTTP_201_CREATED)
 async def create_list(
-    body: ListCreate,
+    body: Create,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -56,10 +56,10 @@ async def create_list(
     return _to_response(list_obj, 0)
 
 
-@router.patch("/{list_id}", response_model=ListResponse)
+@router.patch("/{list_id}", response_model=Response)
 async def update_list(
     list_id: int,
-    body: ListUpdate,
+    body: Update,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

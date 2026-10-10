@@ -3,7 +3,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from listed_backend.models.list_entry import EntryType
+from listed_backend.models.entry import EntryType
 from listed_backend.schemas.entry_metadata import METADATA_SCHEMAS, validate_metadata
 
 

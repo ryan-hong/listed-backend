@@ -38,7 +38,7 @@ class List(Base):
     )
 
     # Relationships
-    entries: Mapped[list["ListEntry"]] = relationship(
+    entries: Mapped[list["Entry"]] = relationship(
         cascade="all, delete-orphan",
-        order_by="ListEntry.position",
+        order_by="Entry.position",
     )
