@@ -16,6 +16,18 @@ from listed_backend.schemas.entry import (
     normalized_metadata,
 )
 from listed_backend.schemas.validation import as_request_validation_error, raise_field_error
+from listed_backend.services import lists as lists_service
+
+
+async def get_all_entries(db: AsyncSession, user: User, list_id: int) -> list[Entry]:
+    await lists_service.get_owned(db, user, list_id)
+    result = await db.execute(
+        select(Entry)
+        .where(Entry.list_id == list_id)
+        .options(selectinload(Entry.logs).selectinload(EntryLog.media))
+        .order_by(Entry.position.asc(), Entry.id.asc())
+    )
+    return list(result.scalars().all())
 
 
 async def get_owned(

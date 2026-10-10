@@ -17,6 +17,15 @@ from listed_backend.services import entries as entries_service
 router = APIRouter(prefix="/lists/{list_id}/entries", tags=["entries"])
 
 
+@router.get("", response_model=list[EntryResponse])
+async def get_entries(
+    list_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await entries_service.get_all_entries(db, user, list_id)
+
+
 @router.post("", response_model=EntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_entry(
     list_id: int,

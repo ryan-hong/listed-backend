@@ -110,6 +110,42 @@ class EntryEndpointTests(unittest.TestCase):
         body = {"entry_type": "MOVIE", "title": "Film", "log": {"rating": 8.9}, **fields}
         return self.client.post("/lists/1/entries", json=body)
 
+    def test_get_entries_orders_and_scopes_full_responses(self):
+        first = self.create(title="First", position=10).json()
+        second = self.create(title="Second", position=-1).json()
+        third = self.create(title="Third", position=10).json()
+        response = self.client.post(
+            "/lists/3/entries",
+            json={"title": "Other list", "log": {"note": "Another entry"}},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        with Session(self.engine) as session:
+            session.add(EntryMedia(
+                log_id=first["logs"][0]["id"], url="https://example.com/photo.jpg",
+                media_type="image",
+            ))
+            session.commit()
+        response = self.client.get("/lists/1/entries")
+        self.assertEqual(response.status_code, 200, response.text)
+        entries = response.json()
+        self.assertEqual([entry["id"] for entry in entries], [second["id"], first["id"], third["id"]])
+        self.assertEqual(entries[1]["logs"][0]["media"][0]["url"], "https://example.com/photo.jpg")
+        for entry in entries:
+            self.assertEqual(entry, self.client.get(f"/lists/1/entries/{entry['id']}").json())
+
+    def test_get_entries_empty_list_and_ownership(self):
+        response = self.client.get("/lists/1/entries")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), [])
+        with Session(self.engine) as session:
+            session.add(Entry(list_id=2, entry_type="CUSTOM", title="Private", log_count=0))
+            session.commit()
+        for list_id in (2, 999):
+            with self.subTest(list_id=list_id):
+                response = self.client.get(f"/lists/{list_id}/entries")
+                self.assertEqual(response.status_code, 404, response.text)
+                self.assertEqual(response.json()["detail"], "List not found")
+
     def test_create_get_update_add_log_delete(self):
         response = self.create(meta={"genres": [" Drama ", "drama"]})
         self.assertEqual(response.status_code, 201, response.text)
