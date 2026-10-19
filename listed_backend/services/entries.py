@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from listed_backend.constants import MAX_POSITION
 from listed_backend.models.list import List
 from listed_backend.models.entry import EntryLog, Entry
 from listed_backend.models.user import User
@@ -96,7 +97,7 @@ async def create(
             .where(Entry.list_id == list_id)
         )
         position = result.scalar_one() + 1
-        if position > 2_147_483_647:
+        if position > MAX_POSITION:
             raise HTTPException(status_code=409, detail="No append position is available")
     # The nested log becomes a related row; position was calculated above.
     fields = payload.model_dump(exclude={"log", "position"})

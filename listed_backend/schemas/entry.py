@@ -15,12 +15,13 @@ from pydantic import (
     model_validator,
 )
 
+from listed_backend.constants import MAX_POSITION, MIN_POSITION
 from listed_backend.models.entry import EntryType
 from listed_backend.schemas.entry_metadata import trimmed_text, validate_metadata
 from listed_backend.schemas.validation import raise_field_error
 
 
-Position = Annotated[StrictInt, Field(ge=-2_147_483_648, le=2_147_483_647)]
+Position = Annotated[StrictInt, Field(ge=MIN_POSITION, le=MAX_POSITION)]
 
 
 def normalized_metadata(entry_type: EntryType, meta: dict | None) -> dict:
