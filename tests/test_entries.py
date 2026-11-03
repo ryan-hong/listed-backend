@@ -27,7 +27,9 @@ from listed_backend.dependencies.auth import get_current_user
 from listed_backend.models.list import List
 from listed_backend.models.entry import EntryLog, EntryMedia, Entry
 from listed_backend.models.user import User
+from listed_backend.models.tag import Tag, entry_tags
 from listed_backend.routers.entries import router
+from listed_backend.routers.tags import router as tags_router
 from listed_backend.schemas.entry import EntryUpdate
 from listed_backend.schemas.validation import json_safe_validation_handler
 from listed_backend.services.entries import get_owned
@@ -98,6 +100,7 @@ class EntryEndpointTests(unittest.TestCase):
         app = FastAPI()
         app.add_exception_handler(RequestValidationError, json_safe_validation_handler)
         app.include_router(router)
+        app.include_router(tags_router)
         app.dependency_overrides[get_db] = database
         app.dependency_overrides[get_current_user] = lambda: User(id=self.user_id, email="owner@example.com")
         self.client = TestClient(app)
@@ -371,6 +374,112 @@ class EntryEndpointTests(unittest.TestCase):
             headers={"content-type": "application/json"},
         )
         self.assertEqual(response.status_code, 422, response.text)
+
+    def test_tags_are_reusable_across_lists_and_entry_types(self):
+        response = self.client.post("/tags", json={"name": " Weekend "})
+        self.assertEqual(response.status_code, 201, response.text)
+        tag = response.json()
+        self.assertEqual(tag["name"], "Weekend")
+        first = self.create(tag_ids=[tag["id"], tag["id"]]).json()
+        response = self.client.post("/lists/3/entries", json={
+            "entry_type": "BOOK", "title": "Book", "log": {"note": "Read"},
+            "tag_ids": [tag["id"]],
+        })
+        self.assertEqual(response.status_code, 201, response.text)
+        second = response.json()
+        self.assertEqual(first["tags"], [tag])
+        self.assertEqual(second["tags"], [tag])
+        self.assertNotIn("tags", first["meta"])
+        self.assertEqual(self.client.get("/tags").json(), [tag])
+        self.assertEqual(self.client.get("/lists/1/entries").json()[0]["tags"], [tag])
+        renamed = self.client.patch(f"/tags/{tag['id']}", json={"name": "Favourites"})
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        for entry in (first, second):
+            path = f"/lists/{entry['list_id']}/entries/{entry['id']}"
+            self.assertEqual(self.client.get(path).json()["tags"], [renamed.json()])
+        self.assertEqual(self.client.delete(f"/tags/{tag['id']}").status_code, 204)
+        for entry in (first, second):
+            fetched = self.client.get(f"/lists/{entry['list_id']}/entries/{entry['id']}").json()
+            self.assertEqual(fetched["tags"], [])
+            self.assertEqual(fetched["log_count"], 1)
+
+    def test_tag_assignments_replace_clear_and_preserve_omitted(self):
+        first = self.client.post("/tags", json={"name": "First"}).json()
+        second = self.client.post("/tags", json={"name": "Second"}).json()
+        entry = self.create(tag_ids=[first["id"]]).json()
+        path = f"/lists/1/entries/{entry['id']}"
+        self.assertEqual(self.client.patch(path, json={"title": "Updated"}).json()["tags"], [first])
+        response = self.client.patch(path, json={"tag_ids": [second["id"], second["id"]]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["tags"], [second])
+        self.assertEqual(self.client.patch(path, json={"entry_type": "BOOK", "meta": {}}).json()["tags"], [second])
+        self.assertEqual(self.client.patch(path, json={"tag_ids": []}).json()["tags"], [])
+        self.assertEqual(len(self.client.get("/tags").json()), 2)
+        self.assertEqual(self.client.delete(path).status_code, 204)
+        self.assertEqual(len(self.client.get("/tags").json()), 2)
+
+    def test_tag_ownership_and_invalid_assignments_are_atomic(self):
+        own_tag = self.client.post("/tags", json={"name": "Mine"}).json()
+        with Session(self.engine) as session:
+            private = Tag(user_id=self.other_id, name="Private")
+            session.add(private)
+            session.commit()
+            private_id = private.id
+        self.assertEqual(self.client.get("/tags").json(), [own_tag])
+        entry = self.create(tag_ids=[own_tag["id"]]).json()
+        path = f"/lists/1/entries/{entry['id']}"
+        for tag_id in (private_id, 999):
+            self.assertEqual(self.client.patch(f"/tags/{tag_id}", json={"name": "Stolen"}).status_code, 404)
+            self.assertEqual(self.client.delete(f"/tags/{tag_id}").status_code, 404)
+            self.assertEqual(self.create(tag_ids=[tag_id]).status_code, 404)
+            response = self.client.patch(path, json={"title": "Changed", "tag_ids": [own_tag["id"], tag_id]})
+            self.assertEqual(response.status_code, 404, response.text)
+            self.assertEqual(self.client.get(path).json(), entry)
+        self.assertEqual(self.client.patch(path, json={"tag_ids": [], "meta": {"bad": True}}).status_code, 422)
+        self.assertEqual(self.client.get(path).json(), entry)
+        for list_id in (2, 3, 999):
+            self.assertEqual(self.client.patch(
+                f"/lists/{list_id}/entries/{entry['id']}", json={"tag_ids": [own_tag["id"]]},
+            ).status_code, 404)
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.scalars(select(Entry)).all()), 1)
+            self.assertEqual(len(session.scalars(select(EntryLog)).all()), 1)
+
+    def test_tag_names_are_unique_per_user_and_validated(self):
+        tag = self.client.post("/tags", json={"name": "Weekend"}).json()
+        self.assertEqual(self.client.post("/tags", json={"name": " WEEKEND "}).status_code, 409)
+        another = self.client.post("/tags", json={"name": "Another"}).json()
+        self.assertEqual(self.client.patch(f"/tags/{another['id']}", json={"name": "weekend"}).status_code, 409)
+        self.assertEqual(self.client.get("/tags").json(), [another, tag])
+        for body in ({}, {"name": " "}, {"name": None}, {"name": 1}, {"name": "x" * 65}, {"name": "Valid", "user_id": str(self.other_id)}):
+            self.assertEqual(self.client.post("/tags", json=body).status_code, 422)
+            self.assertEqual(self.client.patch(f"/tags/{tag['id']}", json=body).status_code, 422)
+        self.client.app.dependency_overrides[get_current_user] = lambda: User(id=self.other_id)
+        self.assertEqual(self.client.get("/tags").json(), [])
+        response = self.client.post("/tags", json={"name": "WEEKEND"})
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertNotEqual(response.json()["id"], tag["id"])
+
+    def test_tag_ids_and_metadata_tag_rejection(self):
+        entry = self.create().json()
+        path = f"/lists/1/entries/{entry['id']}"
+        for value in (None, "1", [True], ["1"], [1.5], [0], [-1], [2**63]):
+            self.assertEqual(self.create(tag_ids=value).status_code, 422)
+            self.assertEqual(self.client.patch(path, json={"tag_ids": value}).status_code, 422)
+        for entry_type in ("MOVIE", "CUSTOM"):
+            for value in (["Weekend"], [], None, 42):
+                response = self.create(entry_type=entry_type, meta={"tags": value})
+                self.assertEqual(response.status_code, 422, response.text)
+                self.assertEqual(response.json()["detail"][0]["loc"], ["body", "meta", "tags"])
+                self.assertEqual(self.client.patch(path, json={"entry_type": entry_type, "meta": {"tags": value}}).status_code, 422)
+
+    def test_entry_deletion_removes_assignments_but_keeps_tags(self):
+        tag = self.client.post("/tags", json={"name": "Keep"}).json()
+        entry = self.create(tag_ids=[tag["id"]]).json()
+        self.assertEqual(self.client.delete(f"/lists/1/entries/{entry['id']}").status_code, 204)
+        self.assertEqual(self.client.get("/tags").json(), [tag])
+        with Session(self.engine) as session:
+            self.assertEqual(session.execute(select(entry_tags)).all(), [])
 
     def test_null_stored_metadata_returns_object(self):
         entry = self.create().json()

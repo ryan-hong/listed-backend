@@ -19,9 +19,11 @@ from listed_backend.constants import MAX_POSITION, MIN_POSITION
 from listed_backend.models.entry import EntryType
 from listed_backend.schemas.entry_metadata import trimmed_text, validate_metadata
 from listed_backend.schemas.validation import raise_field_error
+from listed_backend.schemas.tag import TagResponse
 
 
 Position = Annotated[StrictInt, Field(ge=MIN_POSITION, le=MAX_POSITION)]
+TagIds = list[Annotated[StrictInt, Field(ge=1, le=9_223_372_036_854_775_807)]]
 
 
 def normalized_metadata(entry_type: EntryType, meta: dict | None) -> dict:
@@ -86,6 +88,7 @@ class EntryCreate(BaseModel):
     external_source: trimmed_text(50) | None = None
     external_id: trimmed_text(255) | None = None
     meta: dict | None = None
+    tag_ids: TagIds = Field(default_factory=list)
     log: EntryLogCreate
 
     @model_validator(mode="after")
@@ -104,12 +107,13 @@ class EntryUpdate(BaseModel):
     external_source: trimmed_text(50) | None = None
     external_id: trimmed_text(255) | None = None
     meta: dict | None = None
+    tag_ids: TagIds | None = None
 
     @model_validator(mode="after")
     def update_fields(self):
         if not self.model_fields_set:
             raise ValueError("at least one field must be provided")
-        for field in ("entry_type", "title", "position", "is_favourited"):
+        for field in ("entry_type", "title", "position", "is_favourited", "tag_ids"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise_field_error("Entry", (field,), "must not be null")
         return self
@@ -152,6 +156,7 @@ class EntrySummaryResponse(BaseModel):
     external_source: str | None
     external_id: str | None
     meta: dict
+    tags: list[TagResponse]
     created_at: datetime
     updated_at: datetime
 

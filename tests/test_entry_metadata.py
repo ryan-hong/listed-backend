@@ -33,8 +33,8 @@ class EntryMetadataTests(unittest.TestCase):
 
     def test_normalization(self):
         self.assertEqual(
-            validate_metadata("MOVIE", {"directors": [" Alice ", "alice", "Bob"], "genres": [], "tags": [" Drama ", "DRAMA"], "description": None}),
-            {"directors": ["Alice", "Bob"], "genres": [], "tags": ["Drama"]},
+            validate_metadata("MOVIE", {"directors": [" Alice ", "alice", "Bob"], "genres": [" Drama ", "DRAMA"], "description": None}),
+            {"directors": ["Alice", "Bob"], "genres": ["Drama"]},
         )
         self.assertEqual(validate_metadata("BOOK", {"isbn": "0-8044-2957-x"}), {"isbn": "080442957X"})
         self.assertEqual(validate_metadata("BOOK", {"isbn": "978-0-306-40615-7"}), {"isbn": "9780306406157"})
@@ -83,7 +83,7 @@ class EntryMetadataTests(unittest.TestCase):
                 self.assertEqual(raised.exception.errors()[0]["loc"], (field,))
 
     def test_custom_preserves_values_and_requires_json(self):
-        meta = {" Mixed Key ": " value ", "tags": 42, "null": None, "nested": [{"boolean": True}]}
+        meta = {" Mixed Key ": " value ", "custom_field": 42, "null": None, "nested": [{"boolean": True}]}
         self.assertEqual(validate_metadata("CUSTOM", meta), meta)
         for value in (float("nan"), float("inf"), {1: "value"}, ("tuple",), object()):
             with self.subTest(value=value):

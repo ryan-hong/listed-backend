@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import func, select, update as sql_update
@@ -18,6 +20,7 @@ from listed_backend.schemas.entry import (
 )
 from listed_backend.schemas.validation import as_request_validation_error, raise_field_error
 from listed_backend.services import lists as lists_service
+from listed_backend.services import tags as tags_service
 
 
 async def get_all_entries(db: AsyncSession, user: User, list_id: int) -> list[Entry]:
@@ -26,6 +29,7 @@ async def get_all_entries(db: AsyncSession, user: User, list_id: int) -> list[En
         select(Entry)
         .where(Entry.list_id == list_id)
         .order_by(Entry.position.asc(), Entry.id.asc())
+        .options(selectinload(Entry.tags))
     )
     return list(result.scalars().all())
 
@@ -44,7 +48,7 @@ async def get_owned(
             Entry.list_id == list_id,
             List.user_id == user.id,
         )
-        .options(selectinload(Entry.logs).selectinload(EntryLog.media))
+        .options(selectinload(Entry.logs).selectinload(EntryLog.media), selectinload(Entry.tags))
         .execution_options(populate_existing=True)
     )
     entry = result.scalar_one_or_none()
@@ -100,13 +104,15 @@ async def create(
         if position > MAX_POSITION:
             raise HTTPException(status_code=409, detail="No append position is available")
     # The nested log becomes a related row; position was calculated above.
-    fields = payload.model_dump(exclude={"log", "position"})
+    tags = await tags_service.resolve_owned(db, user, payload.tag_ids)
+    fields = payload.model_dump(exclude={"log", "position", "tag_ids"})
     fields["entry_type"] = payload.entry_type.value
     entry = Entry(
         **fields,
         list_id=list_id,
         position=position,
         log_count=1,
+        tags=tags,
         logs=[EntryLog(**payload.log.model_dump(), media=[])],
     )
     db.add(entry)
@@ -151,6 +157,12 @@ async def update(
         fields["meta"] = meta
     if "entry_type" in fields:
         fields["entry_type"] = payload.entry_type.value
+    if "tag_ids" in fields:
+        tags = await tags_service.resolve_owned(db, user, fields.pop("tag_ids"))
+        await db.refresh(entry, attribute_names=["tags"])
+        entry.tags = tags
+        # A tag-only update still changes the entry's modification timestamp.
+        fields["updated_at"] = datetime.now(timezone.utc)
     try:
         await db.execute(
             sql_update(Entry).where(Entry.id == entry.id).values(**fields)

@@ -131,7 +131,6 @@ class SharedMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     description: LongText | None = None
-    tags: Labels | None = None
     website_url: URL | None = None
     image_url: URL | None = None
 
@@ -298,6 +297,8 @@ def validate_metadata(entry_type: EntryType | str, meta: dict | None) -> dict:
         meta = {}
     if type(meta) is not dict:
         raise ValueError("meta must be a JSON object")
+    if "tags" in meta:
+        raise_field_error("EntryMetadata", ("tags",), "use entry tag_ids instead of meta.tags", meta["tags"])
     _check_json(meta)
     validated = METADATA_SCHEMAS[entry_type].model_validate(meta)
     if entry_type == EntryType.CUSTOM:

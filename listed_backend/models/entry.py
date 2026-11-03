@@ -11,12 +11,14 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from listed_backend.database import Base
+from listed_backend.models.tag import Tag, entry_tags
 
 
 class EntryType(str, enum.Enum):
@@ -86,6 +88,10 @@ class Entry(Base):
         server_default=text("now()"),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+    tags: Mapped[list[Tag]] = relationship(
+        secondary=entry_tags, order_by=lambda: (func.lower(Tag.name), Tag.id),
     )
 
     logs: Mapped[list["EntryLog"]] = relationship(
