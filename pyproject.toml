@@ -17,3 +17,6 @@ dependencies = [
     "email-validator",
     "alembic>=1.18.4",
 ]
+
+[tool.vercel]
+entrypoint = "listed_backend.main:app"

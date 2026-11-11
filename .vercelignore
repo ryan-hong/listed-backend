@@ -1,0 +1,17 @@
+# Credentials are supplied through Vercel project environment variables.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Local tooling and generated files do not belong in a deployment.
+.git/
+.venv/
+venv/
+.vercel/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log

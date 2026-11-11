@@ -4,6 +4,7 @@ __pycache__/
 *.so
 
 .venv/
+.vercel/
 venv/
 ENV/
 
